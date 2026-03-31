@@ -486,11 +486,480 @@ nav {
 /* Fade-in */
 .fade-in { animation: fadeIn 0.4s ease forwards; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── BIOMETRIC AUTH OVERLAY ── */
+#bioAuthOverlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+}
+#bioAuthOverlay::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+.bio-card {
+  position: relative;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  padding: 48px 44px;
+  width: 100%; max-width: 400px;
+  text-align: center;
+  box-shadow: 0 0 0 1px rgba(59,130,246,0.06), 0 40px 80px rgba(0,0,0,0.6);
+  animation: fadeDown 0.5s ease forwards;
+}
+.bio-brand {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--mono); font-size: 13px; font-weight: 600;
+  color: var(--muted); letter-spacing: 0.05em;
+  margin-bottom: 36px;
+}
+.bio-icon-wrap {
+  position: relative;
+  width: 88px; height: 88px;
+  margin: 0 auto 28px;
+  display: flex; align-items: center; justify-content: center;
+}
+.bio-ring {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(59,130,246,0.2);
+}
+.bio-ring-spin {
+  position: absolute; inset: -4px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--blue);
+  border-right-color: rgba(59,130,246,0.3);
+  animation: spin 1.6s linear infinite;
+  opacity: 0;
+}
+.bio-icon-wrap.scanning .bio-ring-spin { opacity: 1; }
+.bio-icon-wrap.scanning .bio-fp-svg { filter: drop-shadow(0 0 8px rgba(59,130,246,0.5)); }
+.bio-icon-wrap.success .bio-fp-svg { filter: drop-shadow(0 0 10px rgba(16,185,129,0.6)); }
+.bio-icon-wrap.error .bio-fp-svg { filter: drop-shadow(0 0 10px rgba(239,68,68,0.5)); }
+
+.bio-fp-svg { width: 52px; height: 52px; transition: filter 0.3s; }
+
+.bio-title {
+  font-size: 22px; font-weight: 600; color: #fff;
+  letter-spacing: -0.02em; margin-bottom: 8px;
+}
+.bio-sub {
+  font-size: 13px; color: var(--muted); line-height: 1.65;
+  margin-bottom: 32px; max-width: 280px; margin-left: auto; margin-right: auto;
+}
+
+.bio-status-msg {
+  font-family: var(--mono); font-size: 12px;
+  color: var(--muted); min-height: 18px;
+  margin-bottom: 28px; transition: color 0.2s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.bio-status-msg.active { color: var(--blue); }
+.bio-status-msg.success { color: var(--safe); }
+.bio-status-msg.error { color: var(--danger); }
+
+.bio-btn {
+  width: 100%; background: var(--blue); color: #fff;
+  font-family: var(--mono); font-size: 13px; font-weight: 600;
+  padding: 14px 24px; border: none; border-radius: 10px;
+  cursor: pointer; letter-spacing: 0.04em;
+  transition: background 0.15s, box-shadow 0.2s, transform 0.1s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.bio-btn:hover { background: #2563eb; box-shadow: 0 4px 20px rgba(59,130,246,0.4); }
+.bio-btn:active { transform: scale(0.98); }
+.bio-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.bio-alt {
+  margin-top: 16px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+}
+.bio-alt-btn {
+  background: none; border: none; color: var(--muted);
+  font-family: var(--mono); font-size: 11px; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+.bio-alt-btn:hover { color: var(--text); }
+
+/* PIN fallback */
+.bio-pin-wrap {
+  display: none; flex-direction: column; align-items: center; gap: 16px; width: 100%;
+}
+.bio-pin-wrap.visible { display: flex; }
+.bio-pin-inputs {
+  display: flex; gap: 10px; justify-content: center;
+}
+.bio-pin-digit {
+  width: 44px; height: 52px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 8px; text-align: center;
+  font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--text);
+  outline: none; caret-color: var(--blue);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.bio-pin-digit:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+.bio-pin-hint { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+/* Scan line animation on fingerprint */
+@keyframes scanLine {
+  0%   { transform: translateY(-22px); opacity: 0.8; }
+  100% { transform: translateY(22px);  opacity: 0.2; }
+}
+.bio-scan-line {
+  position: absolute;
+  left: 18px; right: 18px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--blue), transparent);
+  top: 50%; margin-top: -11px;
+  animation: scanLine 1.2s ease-in-out infinite alternate;
+  opacity: 0; transition: opacity 0.3s;
+  pointer-events: none;
+}
+.bio-icon-wrap.scanning .bio-scan-line { opacity: 1; }
+
+/* ── LOGIN SCREEN ── */
+#loginOverlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+}
+#loginOverlay::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+.login-card {
+  position: relative;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  padding: 44px 44px 40px;
+  width: 100%; max-width: 400px;
+  box-shadow: 0 0 0 1px rgba(59,130,246,0.06), 0 40px 80px rgba(0,0,0,0.6);
+  animation: fadeDown 0.5s ease forwards;
+}
+.login-brand {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--mono); font-size: 13px; font-weight: 600;
+  color: var(--muted); letter-spacing: 0.05em;
+  margin-bottom: 32px;
+}
+.login-heading {
+  font-size: 22px; font-weight: 600; color: #fff;
+  letter-spacing: -0.02em; margin-bottom: 6px; text-align: center;
+}
+.login-sub {
+  font-size: 13px; color: var(--muted); text-align: center;
+  margin-bottom: 28px; line-height: 1.6;
+}
+.login-field { margin-bottom: 14px; }
+.login-label {
+  display: block;
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin-bottom: 7px;
+}
+.login-input {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 10px; padding: 13px 16px;
+  font-family: var(--mono); font-size: 13px; color: var(--text);
+  outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+}
+.login-input::placeholder { color: var(--muted); }
+.login-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+.login-input.error { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(239,68,68,0.1); }
+
+.login-pw-wrap { position: relative; }
+.login-pw-toggle {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  display: flex; align-items: center; transition: color 0.15s;
+  padding: 0;
+}
+.login-pw-toggle:hover { color: var(--text); }
+
+.login-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 22px; margin-top: -4px;
+}
+.login-remember {
+  display: flex; align-items: center; gap: 7px;
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  cursor: pointer; user-select: none;
+}
+.login-remember input[type="checkbox"] {
+  accent-color: var(--blue); width: 13px; height: 13px; cursor: pointer;
+}
+.login-forgot {
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  background: none; border: none; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+.login-forgot:hover { color: var(--blue); }
+
+.login-btn {
+  width: 100%; background: var(--blue); color: #fff;
+  font-family: var(--mono); font-size: 13px; font-weight: 600;
+  padding: 14px; border: none; border-radius: 10px;
+  cursor: pointer; letter-spacing: 0.04em;
+  transition: background 0.15s, box-shadow 0.2s, transform 0.1s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.login-btn:hover { background: #2563eb; box-shadow: 0 4px 20px rgba(59,130,246,0.4); }
+.login-btn:active { transform: scale(0.98); }
+.login-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.login-error-msg {
+  background: var(--danger-bg); border: 1px solid var(--danger-border);
+  border-radius: 8px; padding: 10px 14px;
+  font-family: var(--mono); font-size: 12px; color: var(--danger);
+  margin-bottom: 16px; display: none;
+  align-items: center; gap: 8px;
+}
+.login-error-msg.visible { display: flex; }
+
+.login-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 20px 0;
+}
+.login-divider::before, .login-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+.login-divider span {
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  white-space: nowrap;
+}
+
+.login-sso-btn {
+  width: 100%; background: var(--bg3); color: var(--muted);
+  border: 1px solid var(--border2); border-radius: 10px;
+  font-family: var(--mono); font-size: 12px;
+  padding: 12px; cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-bottom: 10px;
+}
+.login-sso-btn:hover { border-color: rgba(59,130,246,0.3); color: var(--text); background: var(--bg4); }
+
+.login-footer-note {
+  text-align: center; margin-top: 20px;
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+}
+.login-footer-note a {
+  color: var(--blue); text-decoration: none; cursor: pointer;
+}
+.login-footer-note a:hover { text-decoration: underline; }
+
+/* Shake animation for wrong credentials */
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%      { transform: translateX(-8px); }
+  40%      { transform: translateX(8px); }
+  60%      { transform: translateX(-5px); }
+  80%      { transform: translateX(5px); }
+}
+.login-card.shake { animation: shake 0.4s ease; }
+
+/* Loading spinner inside button */
+.btn-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+.login-btn.loading .btn-spinner { display: block; }
+.login-btn.loading .btn-label { display: none; }
+
+/* Forgot password panel */
+#forgotPanel {
+  display: none;
+}
+#forgotPanel.visible { display: block; }
+#loginForm.hidden { display: none; }
 </style>
 </head>
 <body>
 
-<!-- NAV -->
+<!-- ── LOGIN OVERLAY ── -->
+<div id="loginOverlay">
+  <div class="login-card" id="loginCard">
+
+    <div class="login-brand">
+      <svg width="18" height="18" viewBox="0 0 28 28" fill="none">
+        <path d="M14 2L4 6.5V13.5C4 18.75 8.4 23.65 14 25C19.6 23.65 24 18.75 24 13.5V6.5L14 2Z" fill="rgba(59,130,246,0.15)" stroke="#3b82f6" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M10 14l2.5 2.5L18 11" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      PhishGuard
+    </div>
+
+    <!-- Login form -->
+    <div id="loginForm">
+      <div class="login-heading">Welcome back</div>
+      <div class="login-sub">Sign in to access the threat detection dashboard</div>
+
+      <div class="login-error-msg" id="loginError">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7 4v3M7 9.5v.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        <span id="loginErrorText">Invalid email or password.</span>
+      </div>
+
+      <div class="login-field">
+        <label class="login-label" for="loginEmail">Email address</label>
+        <input class="login-input" id="loginEmail" type="email" placeholder="you@company.com" autocomplete="email" onkeydown="loginKeydown(event)">
+      </div>
+
+      <div class="login-field">
+        <label class="login-label" for="loginPassword">Password</label>
+        <div class="login-pw-wrap">
+          <input class="login-input" id="loginPassword" type="password" placeholder="Enter your password" autocomplete="current-password" style="padding-right:44px" onkeydown="loginKeydown(event)">
+          <button class="login-pw-toggle" onclick="togglePwVisibility()" id="pwToggle" tabindex="-1" aria-label="Toggle password visibility">
+            <svg id="pwEyeIcon" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="login-row">
+        <label class="login-remember">
+          <input type="checkbox" id="rememberMe"> Remember me
+        </label>
+        <button class="login-forgot" onclick="showForgotPassword()">Forgot password?</button>
+      </div>
+
+      <button class="login-btn" id="loginBtn" onclick="submitLogin()">
+        <div class="btn-spinner"></div>
+        <span class="btn-label" style="display:flex;align-items:center;gap:8px">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="5" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M4 5V3.5a4 4 0 018 0V5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          Sign in
+        </span>
+      </button>
+
+      <div class="login-divider"><span>or continue with</span></div>
+
+      <button class="login-sso-btn" onclick="ssoLogin('Google')">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M13 7.14c0-.49-.04-.96-.12-1.41H7v2.67h3.36a2.88 2.88 0 01-1.25 1.89v1.57h2.02C12.33 10.69 13 9.05 13 7.14z" fill="#4285F4"/><path d="M7 13c1.68 0 3.09-.56 4.12-1.51l-2.02-1.57c-.56.38-1.27.6-2.1.6-1.61 0-2.97-1.09-3.46-2.55H1.47v1.62A6 6 0 007 13z" fill="#34A853"/><path d="M3.54 7.97A3.6 3.6 0 013.35 7c0-.34.06-.67.19-.97V4.41H1.47A6 6 0 001 7c0 .97.23 1.88.47 2.59l2.07-1.62z" fill="#FBBC05"/><path d="M7 3.48c.91 0 1.72.31 2.36.93l1.77-1.77A6 6 0 007 1a6 6 0 00-5.53 3.41l2.07 1.62C4.03 4.57 5.39 3.48 7 3.48z" fill="#EA4335"/></svg>
+        Sign in with Google
+      </button>
+      <button class="login-sso-btn" onclick="ssoLogin('Microsoft')">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5.5" height="5.5" fill="#F25022"/><rect x="7.5" y="1" width="5.5" height="5.5" fill="#7FBA00"/><rect x="1" y="7.5" width="5.5" height="5.5" fill="#00A4EF"/><rect x="7.5" y="7.5" width="5.5" height="5.5" fill="#FFB900"/></svg>
+        Sign in with Microsoft
+      </button>
+
+      <div class="login-footer-note">
+        Don't have an account? <a onclick="showSignupToast()">Request access</a>
+      </div>
+    </div>
+
+    <!-- Forgot password panel -->
+    <div id="forgotPanel">
+      <div class="login-heading" style="font-size:18px">Reset password</div>
+      <div class="login-sub">Enter your email and we'll send a reset link.</div>
+
+      <div class="login-field">
+        <label class="login-label" for="forgotEmail">Email address</label>
+        <input class="login-input" id="forgotEmail" type="email" placeholder="you@company.com">
+      </div>
+
+      <button class="login-btn" id="forgotBtn" onclick="submitForgot()">
+        <div class="btn-spinner"></div>
+        <span class="btn-label">Send reset link</span>
+      </button>
+
+      <div class="login-footer-note" style="margin-top:16px">
+        <a onclick="showLoginForm()">← Back to sign in</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── BIOMETRIC AUTH OVERLAY ── -->
+<div id="bioAuthOverlay">
+  <div class="bio-card">
+    <!-- Brand -->
+    <div class="bio-brand">
+      <svg width="18" height="18" viewBox="0 0 28 28" fill="none">
+        <path d="M14 2L4 6.5V13.5C4 18.75 8.4 23.65 14 25C19.6 23.65 24 18.75 24 13.5V6.5L14 2Z" fill="rgba(59,130,246,0.15)" stroke="#3b82f6" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M10 14l2.5 2.5L18 11" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      PhishGuard
+    </div>
+
+    <!-- Fingerprint icon -->
+    <div class="bio-icon-wrap" id="bioIconWrap">
+      <div class="bio-ring"></div>
+      <div class="bio-ring-spin"></div>
+      <div class="bio-scan-line"></div>
+      <!-- Fingerprint SVG -->
+      <svg class="bio-fp-svg" id="bioFpSvg" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M26 6C15 6 6 15 6 26" stroke="rgba(59,130,246,0.25)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M46 26C46 15 37 6 26 6" stroke="rgba(59,130,246,0.25)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M26 12C18.3 12 12 18.3 12 26" stroke="rgba(59,130,246,0.4)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M40 26C40 18.3 33.7 12 26 12" stroke="rgba(59,130,246,0.4)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M26 18C21.6 18 18 21.6 18 26" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+        <path d="M34 26C34 21.6 30.4 18 26 18" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+        <path d="M22 26C22 23.8 23.8 22 26 22C28.2 22 30 23.8 30 26V30" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+        <path d="M18 32C18.5 35.5 22 38 26 38C29 38 31.5 36.5 33 34" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+        <path d="M26 26V34" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/>
+        <path d="M22 30C22 32.2 23.8 34 26 34" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/>
+        <path d="M8 32C9 38 12 43 16 46" stroke="rgba(59,130,246,0.25)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M44 32C43 38 40 43 36 46" stroke="rgba(59,130,246,0.25)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <!-- Main auth UI -->
+    <div id="bioMainUI">
+      <div class="bio-title">Verify Identity</div>
+      <div class="bio-sub">Use biometric authentication to access PhishGuard's threat detection dashboard.</div>
+
+      <div class="bio-status-msg" id="bioStatusMsg">Touch sensor or use Face ID to continue</div>
+
+      <button class="bio-btn" id="bioAuthBtn" onclick="startBiometricAuth()">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1a3 3 0 100 6 3 3 0 000-6zM3 13c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Authenticate with Biometrics
+      </button>
+
+      <div class="bio-alt">
+        <span>Can't use biometrics?</span>
+        <button class="bio-alt-btn" onclick="showPinFallback()">Use PIN instead</button>
+      </div>
+    </div>
+
+    <!-- PIN fallback -->
+    <div class="bio-pin-wrap" id="bioPinWrap">
+      <div class="bio-title" style="font-size:18px">Enter PIN</div>
+      <div class="bio-pin-inputs">
+        <input class="bio-pin-digit" id="pin0" type="password" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(0)" onkeydown="pinKey(event,0)">
+        <input class="bio-pin-digit" id="pin1" type="password" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(1)" onkeydown="pinKey(event,1)">
+        <input class="bio-pin-digit" id="pin2" type="password" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(2)" onkeydown="pinKey(event,2)">
+        <input class="bio-pin-digit" id="pin3" type="password" maxlength="1" inputmode="numeric" pattern="[0-9]" oninput="pinInput(3)" onkeydown="pinKey(event,3)">
+      </div>
+      <div class="bio-pin-hint" id="pinHint">Enter 4-digit PIN (demo: 1234)</div>
+      <button class="bio-btn" id="pinSubmitBtn" onclick="submitPin()" style="margin-top:4px">
+        Unlock Dashboard
+      </button>
+      <div class="bio-alt">
+        <button class="bio-alt-btn" onclick="showBiometricMain()">← Back to biometrics</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <nav>
   <div class="nav-brand">
     <div class="brand-shield">
@@ -1190,6 +1659,649 @@ renderLoginTable('all');
 document.getElementById('urlInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') startScan();
 });
+
+
+// ═══════════════════════════════
+// USER DATABASE  (localStorage-backed)
+// ═══════════════════════════════
+
+const STORAGE_KEY = 'pg_userdb';
+const ADMIN_EMAIL = 'sravankumarbathula8@gmail.com'; // YOUR admin account
+
+// Default seed — first run only
+const DEFAULT_USERS = [
+  { id: 'admin', name: 'Admin', email: ADMIN_EMAIL, password: '6305945488', role: 'admin',  active: true, created: Date.now(), lastLogin: null, loginCount: 0 },
+];
+
+function loadUsers() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const users = JSON.parse(raw);
+      // Migrate: if stored admin email doesn't match current ADMIN_EMAIL, reset DB
+      const storedAdmin = users.find(u => u.role === 'admin' && u.id === 'admin');
+      if (storedAdmin && storedAdmin.email !== ADMIN_EMAIL) {
+        saveUsers(DEFAULT_USERS);
+        return DEFAULT_USERS;
+      }
+      return users;
+    }
+  } catch(e) {}
+  saveUsers(DEFAULT_USERS);
+  return DEFAULT_USERS;
+}
+
+function saveUsers(users) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+}
+
+function findUser(email, password) {
+  const users = loadUsers();
+  return users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password && u.active);
+}
+
+function recordLogin(email) {
+  const users = loadUsers();
+  const idx = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
+  if (idx >= 0) {
+    users[idx].lastLogin = new Date().toISOString();
+    users[idx].loginCount = (users[idx].loginCount || 0) + 1;
+    saveUsers(users);
+  }
+}
+
+// ═══════════════════════════════
+// ADMIN PANEL
+// ═══════════════════════════════
+
+let adminPanelOpen = false;
+let editingUserId  = null;
+
+function openAdminPanel() {
+  if (document.getElementById('adminPanel')) return;
+  adminPanelOpen = true;
+
+  const panel = document.createElement('div');
+  panel.id = 'adminPanel';
+  panel.style.cssText = `
+    position:fixed;inset:0;z-index:20000;
+    background:rgba(7,9,15,0.96);
+    display:flex;align-items:flex-start;justify-content:center;
+    overflow-y:auto;padding:40px 20px 60px;
+    backdrop-filter:blur(8px);
+    animation:fadeIn 0.3s ease;
+  `;
+  panel.innerHTML = `
+    <div style="width:100%;max-width:780px;">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;">
+        <div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--blue);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;">⚙ Admin Panel</div>
+          <div style="font-size:22px;font-weight:600;color:#fff;letter-spacing:-0.02em;">User Database</div>
+          <div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:4px;">Manage all PhishGuard login credentials</div>
+        </div>
+        <button onclick="closeAdminPanel()" style="background:var(--bg3);border:1px solid var(--border2);color:var(--muted);font-family:var(--mono);font-size:12px;padding:8px 16px;border-radius:8px;cursor:pointer;transition:color 0.15s;">✕ Close</button>
+      </div>
+
+      <!-- Stats bar -->
+      <div id="adminStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;"></div>
+
+      <!-- Add user button -->
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+        <button onclick="openUserForm()" style="background:var(--blue);color:#fff;font-family:var(--mono);font-size:12px;font-weight:600;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background 0.15s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='var(--blue)'">
+          + Add User
+        </button>
+      </div>
+
+      <!-- User form (hidden by default) -->
+      <div id="adminUserForm" style="display:none;background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:24px;margin-bottom:16px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--blue);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:18px;" id="formTitle">Add New User</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <label style="display:block;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Full Name</label>
+            <input id="formName" type="text" placeholder="e.g. Jane Smith" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-family:var(--mono);font-size:13px;color:var(--text);outline:none;" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border2)'">
+          </div>
+          <div>
+            <label style="display:block;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Email</label>
+            <input id="formEmail" type="email" placeholder="user@company.com" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-family:var(--mono);font-size:13px;color:var(--text);outline:none;" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border2)'">
+          </div>
+          <div>
+            <label style="display:block;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Password</label>
+            <input id="formPassword" type="text" placeholder="Set a password" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-family:var(--mono);font-size:13px;color:var(--text);outline:none;" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border2)'">
+          </div>
+          <div>
+            <label style="display:block;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Role</label>
+            <select id="formRole" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-family:var(--mono);font-size:13px;color:var(--text);outline:none;">
+              <option value="user">User</option>
+              <option value="analyst">Analyst</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <div id="formError" style="display:none;background:var(--danger-bg);border:1px solid var(--danger-border);border-radius:7px;padding:9px 14px;font-family:var(--mono);font-size:12px;color:var(--danger);margin-bottom:12px;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button onclick="closeUserForm()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:12px;padding:9px 18px;border-radius:8px;cursor:pointer;">Cancel</button>
+          <button onclick="saveUserForm()" style="background:var(--blue);color:#fff;font-family:var(--mono);font-size:12px;font-weight:600;padding:9px 18px;border:none;border-radius:8px;cursor:pointer;" id="formSaveBtn">Save User</button>
+        </div>
+      </div>
+
+      <!-- User table -->
+      <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:14px;overflow:hidden;">
+        <div id="adminUserTable"></div>
+      </div>
+
+      <!-- Footer note -->
+      <div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;margin-top:20px;">
+        All user data is stored securely in this browser's local storage. Only you (admin) can access this panel.
+      </div>
+    </div>
+  `;
+  document.body.appendChild(panel);
+  renderAdminTable();
+}
+
+function closeAdminPanel() {
+  const p = document.getElementById('adminPanel');
+  if (p) { p.style.opacity='0'; p.style.transition='opacity 0.2s'; setTimeout(()=>p.remove(),200); }
+  adminPanelOpen = false;
+  editingUserId = null;
+}
+
+function renderAdminTable() {
+  const users = loadUsers();
+  const statsEl = document.getElementById('adminStats');
+  const tableEl = document.getElementById('adminUserTable');
+  if (!statsEl || !tableEl) return;
+
+  const total   = users.length;
+  const active  = users.filter(u=>u.active).length;
+  const admins  = users.filter(u=>u.role==='admin').length;
+  statsEl.innerHTML = [
+    ['Total Users', total, '#fff'],
+    ['Active', active, 'var(--safe)'],
+    ['Admins', admins, 'var(--blue)'],
+  ].map(([l,v,c])=>`
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:16px 20px;">
+      <div style="font-family:var(--mono);font-size:22px;font-weight:600;color:${c};line-height:1;margin-bottom:4px;">${v}</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">${l}</div>
+    </div>
+  `).join('');
+
+  const ROLE_COLORS = { admin:'var(--blue)', analyst:'var(--warn)', user:'var(--muted)' };
+
+  tableEl.innerHTML = `
+    <div style="background:var(--bg3);border-bottom:1px solid var(--border);padding:10px 20px;display:grid;grid-template-columns:2fr 2fr 1fr 1fr 1fr 100px;gap:12px;align-items:center;">
+      ${['Name','Email','Role','Status','Last Login','Actions'].map(h=>`<div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;">${h}</div>`).join('')}
+    </div>
+    ${users.map(u => {
+      const lastLogin = u.lastLogin ? new Date(u.lastLogin).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+      const isAdmin = u.email === ADMIN_EMAIL;
+      return `
+        <div style="padding:13px 20px;display:grid;grid-template-columns:2fr 2fr 1fr 1fr 1fr 100px;gap:12px;align-items:center;border-bottom:1px solid var(--border);transition:background 0.12s;" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+          <div style="font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${u.name}
+            ${isAdmin ? '<span style="font-family:var(--mono);font-size:9px;background:rgba(59,130,246,0.12);color:var(--blue);padding:2px 6px;border-radius:4px;margin-left:6px;border:1px solid rgba(59,130,246,0.2);">YOU</span>' : ''}
+          </div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.email}</div>
+          <div><span style="font-family:var(--mono);font-size:10px;color:${ROLE_COLORS[u.role]||'var(--muted)'};text-transform:uppercase;letter-spacing:0.06em;">${u.role}</span></div>
+          <div>
+            <span style="font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:100px;letter-spacing:0.05em;
+              background:${u.active ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.08)'};
+              color:${u.active ? 'var(--safe)' : 'var(--danger)'};
+              border:1px solid ${u.active ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'};">
+              ${u.active ? 'ACTIVE' : 'DISABLED'}
+            </span>
+          </div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--muted);">${lastLogin}</div>
+          <div style="display:flex;gap:6px;">
+            <button onclick="openUserForm('${u.id}')" title="Edit" style="background:var(--bg4);border:1px solid var(--border);color:var(--muted);font-size:12px;width:28px;height:28px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color 0.15s,border-color 0.15s;" onmouseover="this.style.color='var(--blue)';this.style.borderColor='rgba(59,130,246,0.3)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">✎</button>
+            ${isAdmin ? '' : `
+            <button onclick="toggleUserActive('${u.id}')" title="${u.active?'Disable':'Enable'}" style="background:var(--bg4);border:1px solid var(--border);color:var(--muted);font-size:12px;width:28px;height:28px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color 0.15s;" onmouseover="this.style.color='var(--warn)'" onmouseout="this.style.color='var(--muted)'">${u.active?'⊘':'✓'}</button>
+            <button onclick="deleteUser('${u.id}')" title="Delete" style="background:var(--bg4);border:1px solid var(--border);color:var(--muted);font-size:12px;width:28px;height:28px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color 0.15s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">✕</button>
+            `}
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+function openUserForm(userId) {
+  editingUserId = userId || null;
+  const form = document.getElementById('adminUserForm');
+  const title = document.getElementById('formTitle');
+  const saveBtn = document.getElementById('formSaveBtn');
+  document.getElementById('formError').style.display = 'none';
+
+  if (userId) {
+    const users = loadUsers();
+    const u = users.find(u => u.id === userId);
+    if (!u) return;
+    document.getElementById('formName').value = u.name;
+    document.getElementById('formEmail').value = u.email;
+    document.getElementById('formPassword').value = u.password;
+    document.getElementById('formRole').value = u.role;
+    title.textContent = 'Edit User';
+    saveBtn.textContent = 'Save Changes';
+  } else {
+    document.getElementById('formName').value = '';
+    document.getElementById('formEmail').value = '';
+    document.getElementById('formPassword').value = '';
+    document.getElementById('formRole').value = 'user';
+    title.textContent = 'Add New User';
+    saveBtn.textContent = 'Save User';
+  }
+  form.style.display = 'block';
+  document.getElementById('formName').focus();
+}
+
+function closeUserForm() {
+  document.getElementById('adminUserForm').style.display = 'none';
+  editingUserId = null;
+}
+
+function saveUserForm() {
+  const name     = document.getElementById('formName').value.trim();
+  const email    = document.getElementById('formEmail').value.trim().toLowerCase();
+  const password = document.getElementById('formPassword').value;
+  const role     = document.getElementById('formRole').value;
+  const errEl    = document.getElementById('formError');
+
+  errEl.style.display = 'none';
+  if (!name)     { errEl.textContent = 'Name is required.';     errEl.style.display='block'; return; }
+  if (!email)    { errEl.textContent = 'Email is required.';    errEl.style.display='block'; return; }
+  if (!password) { errEl.textContent = 'Password is required.'; errEl.style.display='block'; return; }
+
+  const users = loadUsers();
+
+  if (editingUserId) {
+    const idx = users.findIndex(u => u.id === editingUserId);
+    if (idx < 0) return;
+    // Check email uniqueness (excluding self)
+    if (users.some((u, i) => u.email.toLowerCase() === email && i !== idx)) {
+      errEl.textContent = 'That email is already in use.'; errEl.style.display='block'; return;
+    }
+    users[idx] = { ...users[idx], name, email, password, role };
+  } else {
+    if (users.some(u => u.email.toLowerCase() === email)) {
+      errEl.textContent = 'A user with that email already exists.'; errEl.style.display='block'; return;
+    }
+    users.push({ id: 'u_' + Date.now(), name, email, password, role, active: true, created: Date.now(), lastLogin: null, loginCount: 0 });
+  }
+
+  saveUsers(users);
+  closeUserForm();
+  renderAdminTable();
+}
+
+function toggleUserActive(userId) {
+  const users = loadUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx < 0) return;
+  users[idx].active = !users[idx].active;
+  saveUsers(users);
+  renderAdminTable();
+}
+
+function deleteUser(userId) {
+  if (!confirm('Delete this user? This cannot be undone.')) return;
+  const users = loadUsers().filter(u => u.id !== userId);
+  saveUsers(users);
+  renderAdminTable();
+}
+
+// ═══════════════════════════════
+// LOGIN AUTHENTICATION
+// ═══════════════════════════════
+
+let loginAttempts = 0;
+let currentUser   = null;
+
+function loginKeydown(e) {
+  if (e.key === 'Enter') submitLogin();
+}
+
+function togglePwVisibility() {
+  const input = document.getElementById('loginPassword');
+  const icon  = document.getElementById('pwEyeIcon');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.innerHTML = '<path d="M1 1l12 12M6.5 5.5A3 3 0 0110.5 9.5M4.2 4.2C2.5 5.3 1 7 1 7s2.5 5 7 5c1.4 0 2.6-.4 3.6-1M5.5 3.2C6 3.1 6.5 3 7 3c4.5 0 7 5 7 5s-.7 1.4-1.8 2.7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>';
+  } else {
+    input.type = 'password';
+    icon.innerHTML = '<path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/>';
+  }
+}
+
+function showLoginError(msg) {
+  const err = document.getElementById('loginError');
+  document.getElementById('loginErrorText').textContent = msg;
+  err.classList.add('visible');
+  document.getElementById('loginEmail').classList.add('error');
+  document.getElementById('loginPassword').classList.add('error');
+  const card = document.getElementById('loginCard');
+  card.classList.remove('shake');
+  void card.offsetWidth;
+  card.classList.add('shake');
+}
+
+function clearLoginError() {
+  document.getElementById('loginError').classList.remove('visible');
+  document.getElementById('loginEmail').classList.remove('error');
+  document.getElementById('loginPassword').classList.remove('error');
+}
+
+async function submitLogin() {
+  const email    = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const btn      = document.getElementById('loginBtn');
+
+  clearLoginError();
+  if (!email)    { showLoginError('Please enter your email address.'); return; }
+  if (!password) { showLoginError('Please enter your password.'); return; }
+
+  btn.disabled = true;
+  btn.classList.add('loading');
+  await new Promise(r => setTimeout(r, 700));
+
+  const user = findUser(email, password);
+
+  btn.classList.remove('loading');
+  btn.disabled = false;
+
+  if (user) {
+    recordLogin(email);
+    currentUser = user;
+    loginAttempts = 0;
+
+    // If admin — add admin panel shortcut to nav after auth
+    if (user.role === 'admin') {
+      setTimeout(() => {
+        const nav = document.querySelector('nav');
+        if (nav && !document.getElementById('adminNavBtn')) {
+          const adminBtn = document.createElement('button');
+          adminBtn.id = 'adminNavBtn';
+          adminBtn.onclick = openAdminPanel;
+          adminBtn.style.cssText = 'background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);color:var(--blue);font-family:var(--mono);font-size:11px;padding:6px 14px;border-radius:7px;cursor:pointer;letter-spacing:0.04em;transition:background 0.15s;';
+          adminBtn.textContent = '⚙ Admin Panel';
+          adminBtn.onmouseover = () => adminBtn.style.background = 'rgba(59,130,246,0.18)';
+          adminBtn.onmouseout  = () => adminBtn.style.background = 'rgba(59,130,246,0.1)';
+          nav.appendChild(adminBtn);
+        }
+      }, 900);
+    }
+
+    // Dismiss login → show biometric
+    const overlay = document.getElementById('loginOverlay');
+    overlay.style.transition = 'opacity 0.4s ease';
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+      overlay.remove();
+      const bio = document.getElementById('bioAuthOverlay');
+      if (bio) { bio.style.opacity = '0'; bio.style.transition = 'opacity 0.4s ease'; setTimeout(() => { bio.style.opacity = '1'; }, 50); }
+    }, 400);
+  } else {
+    loginAttempts++;
+    // Check if user exists but is disabled
+    const allUsers = loadUsers();
+    const exists = allUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (exists && !exists.active) {
+      showLoginError('Your account has been disabled. Contact your administrator.');
+    } else if (loginAttempts >= 5) {
+      showLoginError('Too many failed attempts. Try again in a moment.');
+      btn.disabled = true;
+      setTimeout(() => { loginAttempts = 0; btn.disabled = false; clearLoginError(); }, 15000);
+    } else {
+      showLoginError(`Invalid email or password. ${5 - loginAttempts} attempt${5 - loginAttempts === 1 ? '' : 's'} remaining.`);
+    }
+  }
+}
+
+function ssoLogin(provider) {
+  const btns = document.querySelectorAll('.login-sso-btn');
+  const btn  = provider === 'Google' ? btns[0] : btns[1];
+  const orig = btn.innerHTML;
+  btn.innerHTML = `<span style="font-family:var(--mono);font-size:11px;color:var(--blue)">⟳ Redirecting to ${provider}...</span>`;
+  btn.disabled = true;
+  setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; showLoginError(`SSO with ${provider} is not configured.`); }, 1800);
+}
+
+function showForgotPassword() {
+  document.getElementById('loginForm').classList.add('hidden');
+  document.getElementById('forgotPanel').classList.add('visible');
+  clearLoginError();
+}
+
+function showLoginForm() {
+  document.getElementById('forgotPanel').classList.remove('visible');
+  document.getElementById('loginForm').classList.remove('hidden');
+}
+
+async function submitForgot() {
+  const email = document.getElementById('forgotEmail').value.trim();
+  const btn   = document.getElementById('forgotBtn');
+  if (!email) return;
+  btn.disabled = true; btn.classList.add('loading');
+  await new Promise(r => setTimeout(r, 1200));
+  btn.classList.remove('loading');
+  btn.innerHTML = '<span class="btn-label" style="color:#10b981">✓ Reset link sent — check your inbox</span>';
+  setTimeout(() => { btn.innerHTML = '<div class="btn-spinner"></div><span class="btn-label">Send reset link</span>'; btn.disabled = false; showLoginForm(); }, 3000);
+}
+
+function showSignupToast() {
+  const note = document.querySelector('.login-footer-note');
+  const orig = note.innerHTML;
+  note.innerHTML = '<span style="color:var(--safe)">✓ Access request sent to your admin</span>';
+  setTimeout(() => { note.innerHTML = orig; }, 3000);
+}
+
+// Hide biometric overlay initially — shown only after login
+(function() {
+  const bio = document.getElementById('bioAuthOverlay');
+  if (bio) { bio.style.opacity = '0'; bio.style.transition = 'none'; }
+})();
+
+
+// ═══════════════════════════════
+// BIOMETRIC AUTHENTICATION
+// ═══════════════════════════════
+
+const DEMO_PIN = '1234';
+let bioAttempts = 0;
+
+function setStatus(msg, type = '') {
+  const el = document.getElementById('bioStatusMsg');
+  el.textContent = msg;
+  el.className = 'bio-status-msg' + (type ? ' ' + type : '');
+}
+
+function setIconState(state) {
+  const wrap = document.getElementById('bioIconWrap');
+  wrap.className = 'bio-icon-wrap' + (state ? ' ' + state : '');
+  // Also tint the fingerprint paths
+  const svg = document.getElementById('bioFpSvg');
+  if (state === 'success') {
+    svg.querySelectorAll('path').forEach(p => {
+      if (p.getAttribute('stroke') && !p.getAttribute('stroke').includes('rgba')) {
+        p.setAttribute('stroke', '#10b981');
+      }
+    });
+  } else if (state === 'error') {
+    svg.querySelectorAll('path').forEach(p => {
+      if (p.getAttribute('stroke') && !p.getAttribute('stroke').includes('rgba')) {
+        p.setAttribute('stroke', '#ef4444');
+      }
+    });
+  } else {
+    // Reset to blue
+    const blues = ['#3b82f6', '#3b82f6', '#3b82f6', '#3b82f6', '#3b82f6', '#3b82f6', '#3b82f6', '#3b82f6', '#60a5fa', '#60a5fa'];
+    svg.querySelectorAll('path').forEach((p, i) => {
+      if (p.getAttribute('stroke') && !p.getAttribute('stroke').includes('rgba')) {
+        p.setAttribute('stroke', blues[i] || '#3b82f6');
+      }
+    });
+  }
+}
+
+async function startBiometricAuth() {
+  const btn = document.getElementById('bioAuthBtn');
+  btn.disabled = true;
+  setIconState('scanning');
+  setStatus('⟳ Initializing biometric sensor...', 'active');
+
+  // Check WebAuthn support
+  const webAuthnSupported = window.PublicKeyCredential !== undefined;
+
+  if (webAuthnSupported) {
+    try {
+      setStatus('⟳ Waiting for biometric input...', 'active');
+
+      // Create a challenge
+      const challenge = new Uint8Array(32);
+      crypto.getRandomValues(challenge);
+
+      const userId = new Uint8Array(16);
+      crypto.getRandomValues(userId);
+
+      const publicKeyOptions = {
+        challenge,
+        rp: { name: 'PhishGuard', id: location.hostname || 'localhost' },
+        user: {
+          id: userId,
+          name: 'user@phishguard.local',
+          displayName: 'PhishGuard User',
+        },
+        pubKeyCredParams: [
+          { alg: -7, type: 'public-key' },   // ES256
+          { alg: -257, type: 'public-key' },  // RS256
+        ],
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          userVerification: 'required',
+        },
+        timeout: 30000,
+        attestation: 'none',
+      };
+
+      // Try to create credential (triggers Face ID / Touch ID / Windows Hello)
+      await navigator.credentials.create({ publicKey: publicKeyOptions });
+      authSuccess();
+    } catch (err) {
+      // If user cancelled or not enrolled, try get() as fallback
+      if (err.name === 'NotAllowedError' && err.message.includes('cancel')) {
+        setIconState('error');
+        setStatus('✕ Authentication cancelled', 'error');
+        btn.disabled = false;
+      } else {
+        // Fall back to simulated auth (demo mode for non-enrolled devices)
+        runSimulatedAuth(btn);
+      }
+    }
+  } else {
+    // No WebAuthn — run simulated demo
+    runSimulatedAuth(btn);
+  }
+}
+
+function runSimulatedAuth(btn) {
+  // Simulate a 2.2s biometric scan
+  const steps = [
+    [400,  'Detecting fingerprint pattern...'],
+    [900,  'Analyzing ridge minutiae...'],
+    [1500, 'Cross-referencing enrolled biometrics...'],
+    [2000, 'Verifying liveness...'],
+  ];
+  steps.forEach(([delay, msg]) => {
+    setTimeout(() => setStatus('⟳ ' + msg, 'active'), delay);
+  });
+  setTimeout(() => {
+    authSuccess();
+  }, 2400);
+}
+
+function authSuccess() {
+  setIconState('success');
+  setStatus('✓ Identity verified', 'success');
+  document.getElementById('bioAuthBtn').disabled = false;
+
+  // Small delay then dismiss overlay
+  setTimeout(() => {
+    const overlay = document.getElementById('bioAuthOverlay');
+    overlay.style.transition = 'opacity 0.5s ease';
+    overlay.style.opacity = '0';
+    setTimeout(() => overlay.remove(), 500);
+  }, 700);
+}
+
+function showPinFallback() {
+  document.getElementById('bioMainUI').style.display = 'none';
+  document.getElementById('bioPinWrap').classList.add('visible');
+  setIconState('');
+  document.getElementById('pin0').focus();
+}
+
+function showBiometricMain() {
+  document.getElementById('bioMainUI').style.display = 'block';
+  document.getElementById('bioPinWrap').classList.remove('visible');
+  clearPinInputs();
+  document.getElementById('pinHint').textContent = 'Enter 4-digit PIN (demo: 1234)';
+  document.getElementById('pinHint').style.color = 'var(--muted)';
+}
+
+function pinInput(idx) {
+  const el = document.getElementById('pin' + idx);
+  const val = el.value;
+  if (val && idx < 3) {
+    document.getElementById('pin' + (idx + 1)).focus();
+  }
+  // Auto-submit when all 4 filled
+  const pin = [0,1,2,3].map(i => document.getElementById('pin'+i).value).join('');
+  if (pin.length === 4) setTimeout(submitPin, 120);
+}
+
+function pinKey(e, idx) {
+  if (e.key === 'Backspace' && !document.getElementById('pin' + idx).value && idx > 0) {
+    document.getElementById('pin' + (idx - 1)).focus();
+  }
+}
+
+function clearPinInputs() {
+  [0,1,2,3].forEach(i => { document.getElementById('pin'+i).value = ''; });
+}
+
+function submitPin() {
+  const pin = [0,1,2,3].map(i => document.getElementById('pin'+i).value).join('');
+  if (pin.length < 4) return;
+
+  if (pin === DEMO_PIN) {
+    setIconState('success');
+    setStatus('✓ PIN accepted', 'success');
+    document.getElementById('pinSubmitBtn').disabled = true;
+    setTimeout(() => {
+      const overlay = document.getElementById('bioAuthOverlay');
+      overlay.style.transition = 'opacity 0.5s ease';
+      overlay.style.opacity = '0';
+      setTimeout(() => overlay.remove(), 500);
+    }, 700);
+  } else {
+    bioAttempts++;
+    clearPinInputs();
+    document.getElementById('pin0').focus();
+    const hint = document.getElementById('pinHint');
+    hint.style.color = 'var(--danger)';
+    hint.textContent = bioAttempts >= 3
+      ? `✕ Too many failed attempts. Try biometrics.`
+      : `✕ Incorrect PIN. ${3 - bioAttempts} attempt${3 - bioAttempts === 1 ? '' : 's'} remaining.`;
+    setIconState('error');
+    if (bioAttempts >= 3) {
+      document.getElementById('pinSubmitBtn').disabled = true;
+      setTimeout(() => {
+        showBiometricMain();
+        bioAttempts = 0;
+      }, 2000);
+    }
+  }
+}
 
 </script>
 </body>
